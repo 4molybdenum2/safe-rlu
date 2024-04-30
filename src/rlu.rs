@@ -13,6 +13,15 @@ const RLU_MAX_THREADS: usize = 32;
 const RLU_MAX_FREE_NODES: usize = 100;
 
 
+
+macro_rules! debug_log {
+    ($($rest:tt)*) => {
+        #[cfg(debug_assertions)]
+        std::println!($($rest)*);
+    }
+}
+
+
 #[derive(Debug)]
 pub struct ObjOriginal<T> {
     copy : AtomicPtr<ObjCopy<T>>,
@@ -158,7 +167,7 @@ pub fn rlu_thread_init<T : ClonedT> (rlu_global: *mut RluGlobal<T>) -> usize {
 
 
 pub fn rlu_reader_lock<T : ClonedT>(g_rlu: *mut RluGlobal<T>, thread_id: usize) {
-    println!("Thread {thread_id}: lock");
+    debug_log!("Thread {thread_id}: lock");
     unsafe {
         if !g_rlu.is_null() { // Safety check
             if thread_id < RLU_MAX_THREADS {
@@ -181,7 +190,7 @@ pub fn rlu_reader_lock<T : ClonedT>(g_rlu: *mut RluGlobal<T>, thread_id: usize) 
 
 
 pub fn rlu_reader_unlock<T : ClonedT>(g_rlu: *mut RluGlobal<T>, thread_id: usize) {
-    println!("Thread {thread_id}: unlock");
+    debug_log!("Thread {thread_id}: unlock");
     unsafe {
         if !g_rlu.is_null() { // Safety check
             if thread_id < RLU_MAX_THREADS {
@@ -202,20 +211,20 @@ pub fn rlu_reader_unlock<T : ClonedT>(g_rlu: *mut RluGlobal<T>, thread_id: usize
 }
 
 pub fn rlu_dereference<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usize, obj : *mut Rlu<T>) -> Option<*mut T> {
-    println!("Thread {thread_id}: dereference");
+    debug_log!("Thread {thread_id}: dereference");
     unsafe {
         let actual_obj: &mut ObjOriginal<T> = (*obj).deref_mut();
         let copy = actual_obj.copy.load(Ordering::SeqCst).as_mut();
         match copy {
             None => { 
-                println!("return original");
+                debug_log!("return original");
                 Some(&mut actual_obj.data as *mut T)
             }
 
             Some(copy) => {
                 let lockthd = copy.thread_id;
                 if thread_id == lockthd {
-                    println!("deref self?");
+                    debug_log!("deref self?");
                     return Some(&mut copy.data as *mut T);
                 } else {
                     
@@ -226,11 +235,11 @@ pub fn rlu_dereference<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usiz
 
 
                     if other_write_clock <= my_local_clock {
-                        println!("deref other copy?");
+                        debug_log!("deref other copy?");
                         return Some(&mut copy.data as *mut T);
                     }
 
-                    println!("deref original");
+                    debug_log!("deref original");
                     return Some(&mut actual_obj.data as *mut T);
                 }
             }
@@ -239,7 +248,7 @@ pub fn rlu_dereference<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usiz
 }
 
 pub fn rlu_try_lock<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usize, obj: *mut Rlu<T>) -> Option<*mut T>{
-    println!("Thread {thread_id}: try lock for write");
+    debug_log!("Thread {thread_id}: try lock for write");
     unsafe {
         if !g_rlu.is_null() { // Safety check
             if thread_id < RLU_MAX_THREADS {
@@ -256,7 +265,7 @@ pub fn rlu_try_lock<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usize, 
                     if thread_id == thr_id {
 
                         if rlu_global.threads[thr_id].run_cnt.load(Ordering::SeqCst)  == rlu_global.threads[thread_id].run_cnt.load(Ordering::SeqCst) {
-                            println!("Tried locking from same execution of thread");
+                            debug_log!("Tried locking from same execution of thread");
                             return Some(&mut ptr_copy.data as *mut T);
                         }
                         
@@ -296,7 +305,7 @@ pub fn rlu_try_lock<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usize, 
 
 
 pub fn rlu_commit_write_log<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usize) {
-    println!("Thread {thread_id}: commit write log");
+    debug_log!("Thread {thread_id}: commit write log");
     unsafe {
         if !g_rlu.is_null() { // safety check
 
@@ -351,7 +360,7 @@ pub fn rlu_commit_write_log<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id :
 
 
 pub fn rlu_synchronize<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usize){
-    println!("Thread {thread_id}: sync");
+    debug_log!("Thread {thread_id}: sync");
     unsafe {
         let rlu_global = &mut *g_rlu;
         let thread = &rlu_global.threads[thread_id];
@@ -368,17 +377,17 @@ pub fn rlu_synchronize<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usiz
             let other = &rlu_global.threads[i];
             loop {
                 if sync_cnts[i] % 2 == 0 {
-                    println!("Thread {i} d0");
+                    debug_log!("Thread {i} d0");
                     break;
                 }
 
                 if other.run_cnt.load(Ordering::SeqCst) != sync_cnts[i] {
-                    println!("Thread {i} d1");
+                    debug_log!("Thread {i} d1");
                     break;
                 }
 
                 if thread.write_clock.load(Ordering::SeqCst) <= other.local_clock.load(Ordering::SeqCst) {
-                    println!("Thread {i} d2");
+                    debug_log!("Thread {i} d2");
                     break;
                 }
             }
@@ -390,7 +399,7 @@ pub fn rlu_synchronize<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usiz
 
 
 pub fn rlu_swap_write_logs<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usize) {
-    println!("Thread {thread_id}: swap write log");
+    debug_log!("Thread {thread_id}: swap write log");
     unsafe {
         let rlu_global = &mut *g_rlu;
         let thread_data = &mut rlu_global.threads[thread_id];
@@ -404,7 +413,7 @@ pub fn rlu_swap_write_logs<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : 
 }
 
 pub fn rlu_abort<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usize) {
-    println!("Thread {thread_id}: abort");
+    debug_log!("Thread {thread_id}: abort");
     unsafe {
         if !g_rlu.is_null() { // safety check
 
@@ -431,7 +440,7 @@ pub fn rlu_abort<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usize) {
 
 
 pub fn rlu_writeback_write_log<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usize) {
-    println!("Thread {thread_id}: writeback write log");
+    debug_log!("Thread {thread_id}: writeback write log");
     unsafe {
         let rlu_global = &mut *g_rlu;
         let thread_data = &mut rlu_global.threads[thread_id];
@@ -451,7 +460,7 @@ pub fn rlu_writeback_write_log<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_i
 
 
 pub fn rlu_unlock_write_log<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usize) {
-    println!("Thread {thread_id}: unlock write log");
+    debug_log!("Thread {thread_id}: unlock write log");
     unsafe {
         let rlu_global = &mut *g_rlu;
         let thread_data = &mut rlu_global.threads[thread_id];
@@ -466,9 +475,9 @@ pub fn rlu_unlock_write_log<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id :
     }
 }
 
-
+/* this is just for dropping the objects added to free */
 pub fn rlu_process_free<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usize) {
-    println!("Thread {thread_id}: process free");
+    debug_log!("Thread {thread_id}: process free");
     unsafe {
         let rlu_global = &mut *g_rlu;
         let thread_data = &mut rlu_global.threads[thread_id];
@@ -481,3 +490,19 @@ pub fn rlu_process_free<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usi
 }
 
 
+
+/* this is for freeing objects*/
+pub fn rlu_free<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usize, obj : *mut Rlu<T>) {
+    debug_log!("Thread {thread_id}: free");
+
+    unsafe {
+        let rlu_global = &mut *g_rlu;
+        let thread_data = &mut rlu_global.threads[thread_id];
+        
+
+        let fid = thread_data.free_nodes_size;
+        thread_data.free_nodes_size += 1;
+        thread_data.free_nodes[fid] = *obj; // not sure if this will work, otherwise we have to pass the mutable pointer
+    }
+
+}
