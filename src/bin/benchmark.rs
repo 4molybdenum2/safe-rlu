@@ -30,6 +30,7 @@ const TIMEOUT: u128 = 10000;
 
 #[derive(Clone, Copy, Default, Debug)]
 struct Result {
+    n_threads: u8,
     reads: usize,
     read_times: u128,
     writes: usize,
@@ -38,30 +39,32 @@ struct Result {
     op_times: u128,
 }
 
-
-
-fn read_write(intObject : RluInt64Wrapper, write_ratio : f64) {
-    let mut rw = intObject.clone();
-    let worker = || unsafe {
-        let g = rw.rlu_global;
-        let obj = rw.obj;
-
+fn read_write(rw : RluInt64Wrapper, n_threads: u8, write_ratio : f64) {
+    let worker = || {
+        
         let mut results = Result::default();
+
+
+        thread::spawn(move || unsafe {
+        let rw = rw;
+        let g = rw.rlu_global;
+        let obj = rw.obj; 
         let mut _rnd = SmallRng::from_seed([0; 16]);
         let start = Instant::now();
 
         // initialize thread
         let id = rlu_thread_init(g);
-
+        let mut ops = 0;
         loop {
             if start.elapsed().as_millis() > TIMEOUT {
                 break;
             }
 
             let i = Instant::now();
-            let _rnd_write_val = _rnd.gen_range(0, 10);
             if _rnd.gen::<f64>() < write_ratio {
                 let curr = Instant::now();
+
+                // write operation
 
                 'inner : loop {
                     rlu_reader_lock(g, id);
@@ -73,8 +76,8 @@ fn read_write(intObject : RluInt64Wrapper, write_ratio : f64) {
                           continue;
                         }
             
-                        Some(obj) => {
-                          *obj = _rnd_write_val;
+                        Some(locked_obj) => {
+                          *locked_obj += 1;
                           results.writes += 1;
                           results.write_times += start.elapsed().as_nanos();
                           break 'inner;
@@ -84,8 +87,13 @@ fn read_write(intObject : RluInt64Wrapper, write_ratio : f64) {
                     
                 } 
                 rlu_reader_unlock(g, id);
+                
             } else {
+
+                // read operation
+
                 let curr = Instant::now();
+
                 rlu_reader_lock(g, id);
                 let read_obj = rlu_dereference(g, id, obj).unwrap();
                 results.reads += 1;
@@ -95,18 +103,26 @@ fn read_write(intObject : RluInt64Wrapper, write_ratio : f64) {
 
             results.ops += 1;
             results.op_times += start.elapsed().as_nanos();
-
+            ops += 1;
         }
+            println!("--------------------------------------------------------------------");
+            println!("ops {ops}");
+        });
+        
 
+        results.n_threads = n_threads;
         results
     };
 
 
     let threads: Vec<_> = (0..N_THREADS).map(|_| worker()).collect();
     for t in threads {
+        // let throughput = t.ops / (TIMEOUT as usize * 1000);
         println!("{:?}", t);
+        //println!("Throughput: {throughput}");
     }
 
+    
     //worker.join().unwrap();
 }
 
@@ -115,15 +131,15 @@ fn benchmark() {
     let rlu_global : *mut RluGlobal<u64> = RluGlobal::init();
     let rlu_global_obj = unsafe { & *rlu_global };
 
-    let mut intObject = RluInt64Wrapper { // need wrapper for unsafe send and sync
+    let int_object = RluInt64Wrapper { // need wrapper for unsafe send and sync
         obj : Box::into_raw(Box::new(rlu_global_obj.alloc(0))),
         rlu_global: rlu_global,
     };
 
     println!("Start benchmarking...");
-    for write_ratio in &[0.01] {
-        for i in 0..N_THREADS {
-            read_write(intObject, *write_ratio);
+    for write_ratio in &[0.2] {
+        for i in 1..=N_THREADS {
+            read_write(int_object, i, *write_ratio);
         }
 
     }

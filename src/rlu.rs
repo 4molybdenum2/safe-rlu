@@ -1,7 +1,7 @@
 #![allow(dead_code, unused_variables)]
 
 use std::fmt::Debug;
-use std::mem::{MaybeUninit};
+use std::mem::MaybeUninit;
 use std::ptr;
 use std::ptr::null_mut;
 use std::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
@@ -178,8 +178,6 @@ pub fn rlu_reader_lock<T : ClonedT>(g_rlu: *mut RluGlobal<T>, thread_id: usize) 
 
                 thread_data.is_writer = false;
                 thread_data.run_cnt.fetch_add(1, Ordering::SeqCst);
-
-
                 thread_data.local_clock.store(rlu_global.global_clock.load(Ordering::SeqCst), Ordering::SeqCst);
             }
         } else {
@@ -365,29 +363,30 @@ pub fn rlu_synchronize<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usiz
         let rlu_global = &mut *g_rlu;
         let thread = &rlu_global.threads[thread_id];
 
-        let sync_cnts: Vec<usize> = (0..rlu_global.n_threads.load(Ordering::SeqCst))
+        let n = rlu_global.n_threads.load(Ordering::SeqCst);
+        let sync_cnts: Vec<usize> = (0..n)
             .map(|i| rlu_global.threads[i].run_cnt.load(Ordering::SeqCst))
             .collect();
 
-        for i in 0..rlu_global.n_threads.load(Ordering::SeqCst) {
+        for i in 0..n {
             if i == thread_id {
                 continue;
             }
 
-            let other = &rlu_global.threads[i];
+            let other: &RluThreadData<T> = &rlu_global.threads[i];
             loop {
                 if sync_cnts[i] % 2 == 0 {
-                    debug_log!("Thread {i} d0");
+                    debug_log!("Thread {thread_id} d0");
                     break;
                 }
 
                 if other.run_cnt.load(Ordering::SeqCst) != sync_cnts[i] {
-                    debug_log!("Thread {i} d1");
+                    debug_log!("Thread {thread_id} d1");
                     break;
                 }
 
                 if thread.write_clock.load(Ordering::SeqCst) <= other.local_clock.load(Ordering::SeqCst) {
-                    debug_log!("Thread {i} d2");
+                    debug_log!("Thread {thread_id} d2");
                     break;
                 }
             }
@@ -416,11 +415,11 @@ pub fn rlu_abort<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usize) {
     debug_log!("Thread {thread_id}: abort");
     unsafe {
         if !g_rlu.is_null() { // safety check
-
+            // abort when lock failed and we will retry from same thread
+            // basically makes run_cnt even again
             if thread_id < RLU_MAX_THREADS {
                 let rlu_global = &mut *g_rlu;
                 let thread_data = &mut rlu_global.threads[thread_id];
-
                 let cnt = thread_data.run_cnt.fetch_add(1, Ordering::SeqCst);
                 assert_ne!((cnt & 0x1), 0);
                 if thread_data.is_writer {
@@ -472,6 +471,8 @@ pub fn rlu_unlock_write_log<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id :
             actual.copy.store(null_mut(), Ordering::SeqCst);
         
         }
+
+        curr_log.curr_size = 0;
     }
 }
 

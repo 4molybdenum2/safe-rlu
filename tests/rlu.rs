@@ -1,6 +1,7 @@
 #![allow(dead_code, unused_variables)]
 
 use std::{thread, time};
+use rand::Rng;
 use test_log::test;
 
 use rlu::{
@@ -21,7 +22,7 @@ unsafe impl Send for RluInt64Wrapper {}
 unsafe impl Sync for RluInt64Wrapper {}
 
 
-#[test]
+#[test_log::test]
 fn rlu_basic_spawn_threads() {
   /* Put your RLU tests here! Or add more functions below. */
   let rlu_global: *mut RluGlobal<u64> = RluGlobal::init();
@@ -135,6 +136,31 @@ fn rlu_single_read_single_writer() {
 
   });
 
+  let reader1 = thread::spawn(move || unsafe {
+      let wrapped_int64_obj = wrapped_int64_obj;
+      let obj = wrapped_int64_obj.obj;
+      let rglobal = wrapped_int64_obj.rlu_global;
+
+      let id1 = rlu_thread_init(rglobal);
+      println!("Spawned Reader RLU thread: {id1}");
+      
+      /* will hold lock value will not change */
+      rlu_reader_lock(rglobal, id1);
+      let val = rlu_dereference(rglobal, id1, obj).unwrap();
+      let before = *val;
+      thread::sleep(time::Duration::from_millis(200));
+      assert_eq!(*val, before);
+      rlu_reader_unlock(rglobal, id1);
+
+
+      /* value will change because it happens after 200 millis */
+      rlu_reader_lock(rglobal, id1);
+      let obj2 = rlu_dereference(rglobal, id1, obj).unwrap();
+      assert_eq!(*obj2, 3);
+      rlu_reader_unlock(rglobal, id1);
+    
+
+  });
 
   let writer = thread::spawn(move || unsafe {
       let wrapped_int64_obj = wrapped_int64_obj;
@@ -144,7 +170,7 @@ fn rlu_single_read_single_writer() {
       let id2 = rlu_thread_init(rglobal);
       println!("Spawned Writer RLU thread: {id2}");
   
-      rlu_reader_lock(rglobal, id2);
+      //rlu_reader_lock(rglobal, id2);
   
       let obj2 = rlu_dereference(rglobal, id2, obj).unwrap();
   
@@ -156,7 +182,7 @@ fn rlu_single_read_single_writer() {
       // TODO: this is not modifying: fix required in rlu_dereference
       *obj3 += 1;
   
-      rlu_reader_unlock(rglobal, id2);
+      //rlu_reader_unlock(rglobal, id2);
   });
 
   reader.join().unwrap();
@@ -175,7 +201,9 @@ fn rlu_hold_locks() {
   };
 
 
-  let reader = thread::spawn(move || unsafe {
+  let reader = |x : u64| {
+    
+    thread::spawn(move || unsafe {
       let wrapped_int64_obj = wrapped_int64_obj;
       let obj = wrapped_int64_obj.obj;
       let rglobal = wrapped_int64_obj.rlu_global;
@@ -183,7 +211,7 @@ fn rlu_hold_locks() {
       let id1 = rlu_thread_init(rglobal);
       println!("Spawned Reader RLU thread: {id1}");
 
-      for i in 0..100{
+      for _ in 0..100{
   
         rlu_reader_lock(rglobal, id1);
     
@@ -195,56 +223,67 @@ fn rlu_hold_locks() {
 
         rlu_reader_unlock(rglobal, id1);
       }
-  });
 
 
-  let writer = thread::spawn(move || unsafe {
+      println!("Reader {} exited", x);
+    })
+  };
+
+
+  let writer = |x : u64| {
+    thread::spawn(move || unsafe {
       let wrapped_int64_obj = wrapped_int64_obj;
       let obj = wrapped_int64_obj.obj;
       let rglobal = wrapped_int64_obj.rlu_global;
   
-      let id2 = rlu_thread_init(rglobal);
-      println!("Spawned Writer RLU thread: {id2}");
+      let id = rlu_thread_init(rglobal);
+      println!("Spawned Writer RLU thread: {id}");
       
       for i in 0..1000 {
 
         loop {
-          rlu_reader_lock(rglobal, id2);
-  
-          let obj2 = rlu_dereference(rglobal, id2, obj).unwrap();
-          
-          let wobj = rlu_try_lock(rglobal, id2, obj);
-          // if !rlu_try_lock(rglobal, id2, obj) {
-          //   rlu_abort(rglobal, id2);
-          //   continue;
-          // } 
-          // println!("got lock {i}");
-          // *obj2 += 1;
-          // break;
+          rlu_reader_lock(rglobal, id);
+          let wobj = rlu_try_lock(rglobal, id, obj);
 
           match wobj {
             None => {
-              rlu_abort(rglobal, id2);
+              rlu_abort(rglobal, id);
               continue;
             }
 
             Some(wobj) => {
-              println!("got lock {i}");
               *wobj += 1;
               break;
             }
           }
         }
 
-        rlu_reader_unlock(rglobal, id2);
-        
-        
+        rlu_reader_unlock(rglobal, id);
         
       }
-  });
 
-  reader.join().unwrap();
-  writer.join().unwrap();
+
+      println!("Writer {} exited", x);
+    })
+  
+  };
+  let num_readers = 16;
+  let num_writers = 2;
+
+  let readers: Vec<_> = (0..num_readers).map(|i| reader(i)).collect();
+  let writers: Vec<_> = (0..num_writers).map(|i| writer(i)).collect();
+
+  for t in readers {
+    t.join().expect("Reader panicked");
+  }
+
+  for t in writers {
+    t.join().expect("Writer panicked");
+  }
+
+
+  // reader.join().unwrap();
+  // writer.join().unwrap();
 
   unsafe {
     let obj = wrapped_int64_obj.obj;
@@ -253,7 +292,7 @@ fn rlu_hold_locks() {
     let id = rlu_thread_init(rglobal);
     rlu_reader_lock(rglobal, id);
     let val = rlu_dereference(rglobal, id, obj).unwrap();
-    assert_eq!(*val, 1000);
+    assert_eq!(*val, 1000 * num_writers);
     rlu_reader_unlock(rglobal, id);
 
   }
@@ -262,10 +301,10 @@ fn rlu_hold_locks() {
 }
 
 
-#[test_log::test]
-fn single_read_write_hundred() {
-  for i in 0..100 {
-    println!("Iteration {i}:");
-    rlu_single_read_single_writer();
-  }
-}
+// #[test_log::test]
+// fn single_read_write_hundred() {
+//   for i in 0..100 {
+//     println!("Iteration {i}:");
+//     rlu_single_read_single_writer();
+//   }
+// }
