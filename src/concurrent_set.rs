@@ -7,7 +7,7 @@ pub trait ConcurrentSet<T>: Send + Sync {
     fn contains(&self, value: T) -> bool;
 
     // If the value is not in the set, insert it and return true, return false otherwise
-    fn insert(&self, value: T) -> bool;
+    fn insert(&mut self, value: T) -> bool;
 
     // If the value is in the set, delete it and return true, return false otherwise
     fn delete(&self, value: T) -> bool;

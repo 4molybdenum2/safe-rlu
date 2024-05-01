@@ -4,14 +4,12 @@ use std::marker::{Unpin, PhantomData};
 
 
 pub struct RluSet<T> {
-  head: Link<T>,
+  head: Option<Box<Node<T>>>,
 }
-
-type Link<T> = Option<Box<Node<T>>>;
 
 struct Node<T>{
   elem: T,
-  next: Link<T>,
+  next: Option<Box<Node<T>>>,
 }
 // In case you need raw pointers in your RluSet, you can assert that RluSet is definitely
 // Send and Sync
@@ -28,7 +26,7 @@ impl<T> RluSet<T> where T: PartialEq + PartialOrd + Copy + Clone + Debug + Unpin
 
   pub fn to_string(&self) -> String {
     let mut result = String::new();
-    let mut current = &self.head;
+    let mut current: &Option<Box<Node<T>>> = &self.head;
 
     while let Some(node) = current{
       result.push_str(&format!("{:?}",node.elem));
@@ -41,7 +39,8 @@ impl<T> RluSet<T> where T: PartialEq + PartialOrd + Copy + Clone + Debug + Unpin
 
 impl<T> ConcurrentSet<T> for RluSet<T> where T: PartialEq + PartialOrd + Copy + Clone + Debug + Unpin {
   fn contains(&self, value: T) -> bool {
-    let mut current = &self.head;
+    let mut current:&Option<Box<Node<T>>> = &self.head;
+
     while let Some(node) = current{
       if node.elem==value{
         return true;
@@ -53,8 +52,8 @@ impl<T> ConcurrentSet<T> for RluSet<T> where T: PartialEq + PartialOrd + Copy + 
 
   fn len(&self) -> usize {
     
-    let mut length = 0;
-    let mut current = &self.head;
+    let mut length: usize = 0;
+    let mut current:&Option<Box<Node<T>>> = &self.head;
 
     while let Some(node) = current{
       length +=1;
@@ -64,8 +63,7 @@ impl<T> ConcurrentSet<T> for RluSet<T> where T: PartialEq + PartialOrd + Copy + 
 
   }
 
-  fn insert(&self, value: T) -> bool {
-    //Why tf are we returning a boolean?
+  fn insert(&mut self, value: T) -> bool {
     let new_node = Box::new(Node{
       elem: value,
       next: self.head.take(),
@@ -75,22 +73,16 @@ impl<T> ConcurrentSet<T> for RluSet<T> where T: PartialEq + PartialOrd + Copy + 
   }
 
   fn delete(&self, value: T) -> bool {
-    let mut current = &mut self.head;
-    let mut prev: &mut Link<T> = &mut None;
+    let mut current:&Option<Box<Node<T>>>= &self.head;
+    let mut prev:&Option<Box<Node<T>>>=current;
 
-    while let Some(node) = current{
-      if node.elem == value{
-        if let Some(prev_node) = prev{
-          unimplemented!();
-        }else{
-          self.head = node.next.take();
-        }
+    while let Some(node)=current{
+      if(node.elem)==value{
         return true;
       }
-    current = &mut node.next;
-    prev = Some(&mut node.next);
+      current = &node.next;
     }
-    false
+    return false;
   }
 
   fn clone_ref(&self) -> Self {
