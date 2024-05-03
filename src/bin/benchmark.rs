@@ -34,7 +34,15 @@ struct BenchmarkResult {
     op_times: u128,
 }
 
-fn read_write(rw : RluInt64Wrapper, n_threads: u8, write_ratio : f64) {
+
+#[derive(Clone, Copy)]
+struct BenchmarkConfig {
+    write_ratio: f64,
+    n_threads: u8,
+    timeout: u128,
+}
+
+fn read_write(rw : RluInt64Wrapper, config : BenchmarkConfig) -> BenchmarkResult {
     let worker = || {
         let mut results = BenchmarkResult::default();
 
@@ -49,13 +57,13 @@ fn read_write(rw : RluInt64Wrapper, n_threads: u8, write_ratio : f64) {
             let id = rlu_thread_init(g);
             let mut ops = 0;
             loop {
-                if start.elapsed().as_millis() > TIMEOUT {
+                if start.elapsed().as_millis() > config.timeout {
                     break;
                 }
 
                 let i = Instant::now();
-                if _rnd.gen::<f64>() < write_ratio {
-                    println!("write op: {}, thread {}", ops, n_threads);
+                if _rnd.gen::<f64>() < config.write_ratio {
+                    //println!("write op: {}, thread {}", ops, n_threads);
                     let curr = Instant::now();
 
                     // write operation
@@ -80,7 +88,6 @@ fn read_write(rw : RluInt64Wrapper, n_threads: u8, write_ratio : f64) {
                     rlu_reader_unlock(g, id);
                     
                 } else {
-                    println!("read op: {}, thread {}", ops, n_threads);
                     // read operation
                     let curr = Instant::now();
                     rlu_reader_lock(g, id);
@@ -91,20 +98,34 @@ fn read_write(rw : RluInt64Wrapper, n_threads: u8, write_ratio : f64) {
                 }
 
                 results.ops += 1;
-                results.op_times += start.elapsed().as_nanos();
+                results.op_times += i.elapsed().as_nanos();
                 ops += 1;
             }
 
-            results.n_threads = n_threads;
+            results.n_threads = config.n_threads;
+            //println!("Results for {} threads: {:?}", config.n_threads, results);
             results
-        });
+        })
     };
 
 
-    let threads: Vec<_> = (0..N_THREADS).map(|_| worker()).collect();
-    for t in threads {
-        println!("{:?}", t);
-    }
+    let threads: Vec<_> = (0..config.n_threads).map(|_| worker()).collect();
+    threads.into_iter().map(|t| t.join().unwrap()).fold(
+        BenchmarkResult::default(), 
+    
+        |mut x, res| {
+            x.ops += res.ops;
+            x.op_times += res.op_times;
+
+            x.reads += res.reads;
+            x.read_times += res.read_times;
+
+            x.writes += res.writes;
+            x.write_times += res.write_times;
+
+            x
+        }
+    )
 }
 
 fn benchmark() {
@@ -116,10 +137,22 @@ fn benchmark() {
         rlu_global: rlu_global,
     };
 
-    println!("Start benchmarking...");
-    for write_ratio in &[0.2] {
+    
+
+    println!(" Write Fraction, Thread Count, Throughput");
+    for wr in &[0.02, 0.2, 0.4] {
+        
         for i in 1..=N_THREADS {
-            read_write(int_object, i, *write_ratio);
+            let config = BenchmarkConfig {
+                write_ratio: *wr,
+                n_threads: i,
+                timeout: 10000,
+            };
+
+            let ops = read_write(int_object, config).ops as f64;
+            
+            let throughput = ops / ((config.timeout * 1000) as f64);
+            println!(" {} {} {}", wr, i, throughput);
         }
     }
 }
