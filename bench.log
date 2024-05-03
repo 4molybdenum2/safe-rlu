@@ -1,0 +1,204 @@
+Start benchmarking...
+read op: 0, thread 1
+Thread 1: lock
+Thread 1: dereference
+return original
+Thread 1: unlock
+write op: 1, thread 1
+Thread 1: lock
+Thread 1: try lock for write
+Thread 1: unlock
+()
+()
+()
+()
+Thread 1: commit write log
+Thread 1: sync
+read op: 0, thread 1
+Thread 0: lock
+Thread 0: dereference
+Thread 1 d0
+Thread 1: writeback write log
+deref other copy?
+Thread 0: unlock
+Thread 1: unlock write log
+Thread 1: swap write log
+write op: 1, thread 1
+Thread 0: lock
+Thread 1: process free
+read op: 2, thread 1
+Thread 0: try lock for write
+Thread 0: unlock
+Thread 1: lock
+Thread 1: dereference
+Thread 0: commit write log
+Thread 0: sync
+deref other copy?
+Thread 1: unlock
+Thread 0 d1
+Thread 0 d0
+write op: 3, thread 1
+Thread 1: lock
+read op: 0, thread 1
+Thread 3: lock
+Thread 0 d0
+Thread 0: writeback write log
+Thread 0: unlock write log
+Thread 1: try lock for write
+Thread 1: unlock
+Thread 1: commit write log
+Thread 1: sync
+Thread 3: dereference
+deref other copy?
+Thread 0: swap write log
+()
+()
+Thread 1 d0
+Thread 1 d0
+Thread 3: unlock
+Thread 1 d1
+Thread 1 d0
+Thread 1: writeback write log
+read op: 0, thread 1
+Thread 2: lock
+()
+()
+read op: 0, thread 2
+Thread 5: lock
+Thread 5: dereference
+deref other copy?
+Thread 5: unlock
+write op: 1, thread 2
+Thread 5: lock
+Thread 5: try lock for write
+Thread 5: abort
+Thread 1: unlock write log
+Thread 1: swap write log
+Thread 1: process free
+read op: 0, thread 2
+Thread 6: lock
+Thread 6: dereference
+read op: 0, thread 2
+Thread 7: lock
+write op: 1, thread 1
+Thread 3: lock
+Thread 0: process free
+read op: 2, thread 1
+Thread 0: lock
+Thread 5: unlock write log
+Thread 5: lock
+read op: 4, thread 1
+Thread 1: lock
+Thread 1: dereference
+return original
+Thread 6: unlock
+write op: 1, thread 2
+Thread 6: lock
+Thread 6: try lock for write
+Thread 0: dereference
+deref other copy?
+Thread 0: unlock
+Thread 2: dereference
+Thread 5: try lock for write
+return original
+Thread 1: unlock
+Thread 7: dereference
+()
+()
+()
+()
+deref other copy?
+Thread 2: unlock
+Thread 5: abort
+Thread 5: unlock write log
+Thread 5: lock
+read op: 0, thread 3
+Thread 8: lock
+Thread 8: dereference
+read op: 0, thread 2
+Thread 4: lock
+read op: 0, thread 3
+Thread 9: lock
+deref other copy?
+Thread 7: unlock
+Thread 3: try lock for write
+Thread 3: abort
+Thread 3: unlock write log
+Thread 3: lock
+Thread 6: unlock
+Thread 6: commit write log
+Thread 6: sync
+write op: 1, thread 1
+Thread 2: lock
+read op: 0, thread 4
+Thread 12: lock
+read op: 0, thread 3
+Thread 11: lock
+read op: 5, thread 1
+Thread 1: lock
+()
+()
+Thread 4: dereference
+deref other copy?
+Thread 4: unlock
+read op: 0, thread 4
+Thread 14: lock
+read op: 0, thread 4
+Thread 13: lock
+write op: 3, thread 1
+Thread 0: lock
+Thread 0: try lock for write
+Thread 6 d0
+read op: 0, thread 4
+Thread 15: lock
+Thread 2: try lock for write
+Thread 2: abort
+Thread 5: try lock for write
+Thread 5: abort
+Thread 12: dereference
+deref other copy?
+Thread 11: dereference
+deref other copy?
+Thread 1: dereference
+deref other copy?
+Thread 1: unlock
+read op: 6, thread 1
+Thread 1: lock
+Thread 1: dereference
+deref other copy?
+Thread 1: unlock
+read op: 7, thread 1
+deref other copy?
+Thread 8: unlock
+()
+Thread 9: dereference
+deref other copy?
+write op: 1, thread 2
+Thread 7: lock
+Thread 14: dereference
+deref other copy?
+Thread 14: unlock
+Thread 13: dereference
+deref other copy?
+Thread 0: abort
+Thread 0: unlock write log
+Thread 0: lock
+Thread 6 d0
+Thread 6 d0
+read op: 0, thread 3
+Thread 10: lock
+Thread 10: dereference
+Thread 15: dereference
+Thread 2: unlock write log
+Thread 5: unlock write log
+Thread 5: lock
+Thread 11: unlock
+write op: 1, thread 3
+Thread 1: lock
+Thread 1: dereference
+deref other copy?
+write op: 1, thread 3
+Thread 8: lock
+()
+write op: 1, thread 2
+Thread 4: lock

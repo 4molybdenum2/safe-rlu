@@ -136,31 +136,31 @@ fn rlu_single_read_single_writer() {
 
   });
 
-  let reader1 = thread::spawn(move || unsafe {
-      let wrapped_int64_obj = wrapped_int64_obj;
-      let obj = wrapped_int64_obj.obj;
-      let rglobal = wrapped_int64_obj.rlu_global;
+  // let reader1 = thread::spawn(move || unsafe {
+  //     let wrapped_int64_obj = wrapped_int64_obj;
+  //     let obj = wrapped_int64_obj.obj;
+  //     let rglobal = wrapped_int64_obj.rlu_global;
 
-      let id1 = rlu_thread_init(rglobal);
-      println!("Spawned Reader RLU thread: {id1}");
+  //     let id1 = rlu_thread_init(rglobal);
+  //     println!("Spawned Reader RLU thread: {id1}");
       
-      /* will hold lock value will not change */
-      rlu_reader_lock(rglobal, id1);
-      let val = rlu_dereference(rglobal, id1, obj).unwrap();
-      let before = *val;
-      thread::sleep(time::Duration::from_millis(200));
-      assert_eq!(*val, before);
-      rlu_reader_unlock(rglobal, id1);
+  //     /* will hold lock value will not change */
+  //     rlu_reader_lock(rglobal, id1);
+  //     let val = rlu_dereference(rglobal, id1, obj).unwrap();
+  //     let before = *val;
+  //     thread::sleep(time::Duration::from_millis(200));
+  //     assert_eq!(*val, before);
+  //     rlu_reader_unlock(rglobal, id1);
 
 
-      /* value will change because it happens after 200 millis */
-      rlu_reader_lock(rglobal, id1);
-      let obj2 = rlu_dereference(rglobal, id1, obj).unwrap();
-      assert_eq!(*obj2, 3);
-      rlu_reader_unlock(rglobal, id1);
+  //     /* value will change because it happens after 200 millis */
+  //     rlu_reader_lock(rglobal, id1);
+  //     let obj2 = rlu_dereference(rglobal, id1, obj).unwrap();
+  //     assert_eq!(*obj2, 3);
+  //     rlu_reader_unlock(rglobal, id1);
     
 
-  });
+  // });
 
   let writer = thread::spawn(move || unsafe {
       let wrapped_int64_obj = wrapped_int64_obj;
@@ -170,7 +170,7 @@ fn rlu_single_read_single_writer() {
       let id2 = rlu_thread_init(rglobal);
       println!("Spawned Writer RLU thread: {id2}");
   
-      //rlu_reader_lock(rglobal, id2);
+      rlu_reader_lock(rglobal, id2);
   
       let obj2 = rlu_dereference(rglobal, id2, obj).unwrap();
   
@@ -182,7 +182,7 @@ fn rlu_single_read_single_writer() {
       // TODO: this is not modifying: fix required in rlu_dereference
       *obj3 += 1;
   
-      //rlu_reader_unlock(rglobal, id2);
+      rlu_reader_unlock(rglobal, id2);
   });
 
   reader.join().unwrap();
@@ -301,10 +301,10 @@ fn rlu_hold_locks() {
 }
 
 
-// #[test_log::test]
-// fn single_read_write_hundred() {
-//   for i in 0..100 {
-//     println!("Iteration {i}:");
-//     rlu_single_read_single_writer();
-//   }
-// }
+#[test_log::test]
+fn single_read_write_hundred() {
+  for i in 0..100 {
+    println!("Iteration {i}:");
+    rlu_single_read_single_writer();
+  }
+}

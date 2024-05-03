@@ -152,7 +152,6 @@ impl<T : ClonedT> RluGlobal<T> {
     }
 
 pub fn rlu_thread_init<T : ClonedT> (rlu_global: *mut RluGlobal<T>) -> usize {
-
     unsafe {
         let thread_id = (*rlu_global).n_threads.fetch_add(1, Ordering::SeqCst);
         assert!(thread_id < RLU_MAX_THREADS);
@@ -484,7 +483,7 @@ pub fn rlu_process_free<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usi
         let thread_data = &mut rlu_global.threads[thread_id];
 
         for i in 0..thread_data.free_nodes_size {
-            Box::from_raw(thread_data.free_nodes[i].0); //deallocate memory
+            Box::from_raw(thread_data.free_nodes[i].0); //deallocate memory - hack
         }
         thread_data.free_nodes_size = 0;
     }
