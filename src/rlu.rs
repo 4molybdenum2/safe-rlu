@@ -75,7 +75,6 @@ pub struct WriteLog<T> {
     curr_size : usize,
 }
 
-
 impl<T> WriteLog<T> {
     fn new() -> WriteLog<T> {
         WriteLog {
@@ -111,6 +110,10 @@ impl<T> RluThreadData<T> {
             free_nodes_size: 0,
         }
     }
+
+    pub fn thread_id(&self)->usize{
+        self.thread_id
+    }
 }
 
 pub struct RluGlobal<T : ClonedT> {
@@ -118,7 +121,6 @@ pub struct RluGlobal<T : ClonedT> {
     n_threads : AtomicUsize,
     threads : [RluThreadData<T> ; RLU_MAX_THREADS],
 }
-
 
 impl<T : ClonedT> RluGlobal<T> {
     fn new() -> RluGlobal<T> {
@@ -164,8 +166,6 @@ pub fn rlu_thread_init<T : ClonedT> (rlu_global: *mut RluGlobal<T>) -> usize {
     }
 }
 
-
-
 pub fn rlu_reader_lock<T : ClonedT>(g_rlu: *mut RluGlobal<T>, thread_id: usize) {
     debug_log!("Thread {thread_id}: lock");
     unsafe {
@@ -185,7 +185,6 @@ pub fn rlu_reader_lock<T : ClonedT>(g_rlu: *mut RluGlobal<T>, thread_id: usize) 
         }
     }
 }
-
 
 pub fn rlu_reader_unlock<T : ClonedT>(g_rlu: *mut RluGlobal<T>, thread_id: usize) {
     debug_log!("Thread {thread_id}: unlock");
@@ -301,7 +300,6 @@ pub fn rlu_try_lock<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usize, 
     }
 }
 
-
 pub fn rlu_commit_write_log<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usize) {
     debug_log!("Thread {thread_id}: commit write log");
     unsafe {
@@ -356,7 +354,6 @@ pub fn rlu_commit_write_log<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id :
 
 }
 
-
 pub fn rlu_synchronize<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usize){
     debug_log!("Thread {thread_id}: sync");
     unsafe {
@@ -395,7 +392,6 @@ pub fn rlu_synchronize<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usiz
 
     }
 }
-
 
 pub fn rlu_swap_write_logs<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usize) {
     debug_log!("Thread {thread_id}: swap write log");
@@ -437,7 +433,6 @@ pub fn rlu_abort<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usize) {
     }
 }
 
-
 pub fn rlu_writeback_write_log<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usize) {
     debug_log!("Thread {thread_id}: writeback write log");
     unsafe {
@@ -456,7 +451,6 @@ pub fn rlu_writeback_write_log<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_i
     }
 
 }
-
 
 pub fn rlu_unlock_write_log<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usize) {
     debug_log!("Thread {thread_id}: unlock write log");
@@ -489,8 +483,6 @@ pub fn rlu_process_free<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usi
         thread_data.free_nodes_size = 0;
     }
 }
-
-
 
 /* this is for freeing objects*/
 pub fn rlu_free<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usize, obj : *mut Rlu<T>) {
