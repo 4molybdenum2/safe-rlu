@@ -19,7 +19,7 @@ def main():
     # Set labels and title
     plt.xlabel('Thread Count')
     plt.ylabel('Throughput')
-    plt.title('BTree Set Benchmark')
+    plt.title('Rlu BTree Set Benchmark')
 
     # Show plot
     plt.savefig('bench_btree.png')

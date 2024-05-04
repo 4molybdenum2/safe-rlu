@@ -22,7 +22,6 @@ unsafe impl Sync for RluInt64Wrapper {}
 
 #[derive(Clone, Copy, Default, Debug)]
 struct BenchmarkResult {
-    n_threads: u8,
     reads: usize,
     read_times: u128,
     writes: usize,
@@ -41,10 +40,11 @@ struct BenchmarkConfig {
 
 fn read_write(rw : RluInt64Wrapper, config : BenchmarkConfig) -> BenchmarkResult {
     let worker = || {
-        let mut results = BenchmarkResult::default();
 
         
         thread::spawn(move || unsafe {
+            let mut results = BenchmarkResult::default();
+
             let rw = rw;
             let g = rw.rlu_global;
             let obj = rw.obj; 
@@ -53,7 +53,6 @@ fn read_write(rw : RluInt64Wrapper, config : BenchmarkConfig) -> BenchmarkResult
 
             let id = rlu_thread_init(g);
             // initialize thread
-            let mut ops = 0;
             loop {
                 if start.elapsed().as_millis() > config.timeout {
                     break;
@@ -77,30 +76,29 @@ fn read_write(rw : RluInt64Wrapper, config : BenchmarkConfig) -> BenchmarkResult
                 
                             Some(locked_obj) => {
                               *locked_obj += 1;
-                              results.writes += 1;
-                              results.write_times += start.elapsed().as_nanos();
                               break 'inner;
                             }
                           }
                     } 
                     rlu_reader_unlock(g, id);
-                    
+                    results.writes += 1;
+                    results.write_times += curr.elapsed().as_nanos();
                 } else {
                     // read operation
                     let curr = Instant::now();
                     rlu_reader_lock(g, id);
                     let read_obj = rlu_dereference(g, id, obj).unwrap();
-                    results.reads += 1;
-                    results.read_times += start.elapsed().as_nanos();
                     rlu_reader_unlock(g, id);
+
+
+                    results.reads += 1;
+                    results.read_times += curr.elapsed().as_nanos();
                 }
 
                 results.ops += 1;
                 results.op_times += i.elapsed().as_nanos();
-                ops += 1;
             }
 
-            results.n_threads = config.n_threads;
             //println!("Results for {} threads: {:?}", config.n_threads, results);
             results
         })
@@ -153,7 +151,7 @@ fn benchmark() {
                 read_write(int_object, config)
             }).collect();
             
-            let avg: f64 = (ops.iter().map(|res| res.ops).sum::<usize>() as f64)/ (ops.len() as f64);
+            let avg: f64 = (ops.iter().map(|res| res.reads).sum::<usize>() as f64)/ (ops.len() as f64);
             let throughput = avg / ((config.timeout * 1000) as f64);
 
             println!("{},{},{}", wr, i, throughput);

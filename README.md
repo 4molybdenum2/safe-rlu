@@ -8,20 +8,20 @@ Implementation of Read Log Update in Rust
 To run the single object benchmarks
 
 ```bash
-cargo run --bin benchmark --release
+make all
 ```
 
 To run RLU based Set benchmarks
 
 ```bash
-cargo run --bin benchmark_rlu_set --release
+make rluset-btree
 ```
 
 
 To run Rust's BTree Set benchmarks
 
 ```bash
-cargo run --bin benchmark_btree_set --release
+make benchmark-btree
 ```
 
 
@@ -32,11 +32,11 @@ cargo run --bin benchmark_btree_set --release
 To install necessary libraries for making the benchmark plots:
 
 ```bash
-pip install -r requirements.txt
+make deps
 ```
 
 To run the benchmark plots:
 
 ```bash
-python bench_plot.py
+make plot
 ```
