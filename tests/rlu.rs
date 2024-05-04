@@ -57,7 +57,7 @@ fn rlu_multiple_threads_read_only() {
   };
 
 
-  let reader1 = thread::spawn(move || unsafe {
+    let reader1 = thread::spawn(move || unsafe {
     let wrapped_int64_obj = wrapped_int64_obj; // needed in 2021 version of Rust
     let obj = wrapped_int64_obj.obj;
     let rglobal = wrapped_int64_obj.rlu_global;
