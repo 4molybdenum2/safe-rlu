@@ -3,22 +3,9 @@
 extern crate rand;
 
 use std::{thread, time::Instant};
+use rlu::{ConcurrentBTreeSet, ConcurrentSet};
 
 use rand::{rngs::SmallRng, Rng, SeedableRng};
-use rlu::{
-  rlu_dereference, rlu_reader_lock, rlu_reader_unlock,
-  rlu_try_lock, rlu_thread_init, rlu_abort, RluGlobal, Rlu
-};
-
-#[derive(Copy, Clone, Debug)]
-pub struct RluInt64Wrapper {
-  pub obj : *mut Rlu<u64>,
-  pub rlu_global : *mut RluGlobal<u64>
-}
-
-unsafe impl Send for RluInt64Wrapper {}
-unsafe impl Sync for RluInt64Wrapper {}
-
 
 #[derive(Clone, Copy, Default, Debug)]
 struct BenchmarkResult {
@@ -35,23 +22,20 @@ struct BenchmarkResult {
 #[derive(Clone, Copy)]
 struct BenchmarkConfig {
     write_ratio: f64,
+    insert_ratio: f64,
     n_threads: u8,
     timeout: u128,
+    initial_size: usize,
+    range: usize
 }
 
-fn read_write(rw : RluInt64Wrapper, config : BenchmarkConfig) -> BenchmarkResult {
+fn read_write(set: ConcurrentBTreeSet<usize>, config : BenchmarkConfig) -> BenchmarkResult {
     let worker = || {
-        let mut results = BenchmarkResult::default();
+        let mut results: BenchmarkResult = BenchmarkResult::default();
+        let mut set = set.clone_ref();
 
-        
         thread::spawn(move || unsafe {
-            let rw = rw;
-            let g = rw.rlu_global;
-            let obj = rw.obj; 
-            let mut _rnd = SmallRng::from_seed([0; 16]);
             let start = Instant::now();
-
-            let id = rlu_thread_init(g);
             // initialize thread
             let mut ops = 0;
             loop {
@@ -60,39 +44,22 @@ fn read_write(rw : RluInt64Wrapper, config : BenchmarkConfig) -> BenchmarkResult
                 }
 
                 let i = Instant::now();
+
+                let mut _rnd = SmallRng::from_seed([0;16]);
+                let num = _rnd.gen_range(0, config.range);
                 if _rnd.gen::<f64>() < config.write_ratio {
                     //println!("write op: {}, thread {}", ops, n_threads);
                     let curr = Instant::now();
 
-                    // write operation
-                    'inner: loop {
-                        rlu_reader_lock(g, id);
-                        let locked_obj = rlu_try_lock(g, id, obj);
-
-                        match locked_obj {
-                            None => {
-                              rlu_abort(g, id);
-                              continue;
-                            }
-                
-                            Some(locked_obj) => {
-                              *locked_obj += 1;
-                              results.writes += 1;
-                              results.write_times += start.elapsed().as_nanos();
-                              break 'inner;
-                            }
-                          }
-                    } 
-                    rlu_reader_unlock(g, id);
+                    if _rnd.gen::<f64>()  < config.insert_ratio {
+                        set.delete(num);
+                    } else {
+                        set.insert(num);
+                    }
                     
                 } else {
                     // read operation
-                    let curr = Instant::now();
-                    rlu_reader_lock(g, id);
-                    let read_obj = rlu_dereference(g, id, obj).unwrap();
-                    results.reads += 1;
-                    results.read_times += start.elapsed().as_nanos();
-                    rlu_reader_unlock(g, id);
+                    set.contains(num);
                 }
 
                 results.ops += 1;
@@ -127,30 +94,26 @@ fn read_write(rw : RluInt64Wrapper, config : BenchmarkConfig) -> BenchmarkResult
 }
 
 fn benchmark() {
-
-
-    
-
-    println!("Write_Ratio,Thread_Count,Throughput");
+    println!("Write_Fraction,Thread_Count,Throughput");
     for wr in &[0.02, 0.2, 0.4] {
         for i in 1..=8 {
             let config = BenchmarkConfig {
                 write_ratio: *wr,
+                insert_ratio: 0.5,
                 n_threads: i,
                 timeout: 10000,
-            };
-
-
-            let rlu_global : *mut RluGlobal<u64> = RluGlobal::init();
-            let rlu_global_obj = unsafe { & *rlu_global };
-
-            let int_object = RluInt64Wrapper {
-                obj : Box::into_raw(Box::new(rlu_global_obj.alloc(0))),
-                rlu_global: rlu_global,
+                initial_size: 256,
+                range: 512,
             };
 
             let ops: Vec<_> = (0..3).map(|_| {
-                read_write(int_object, config)
+                let mut set = ConcurrentBTreeSet::new();
+                let mut _rnd = SmallRng::from_seed([0; 16]);
+                while set.len() < config.initial_size {
+                    let i = _rnd.gen_range(0, config.range);
+                    set.insert(i);
+                }
+                read_write(set, config)
             }).collect();
             
             let avg: f64 = (ops.iter().map(|res| res.ops).sum::<usize>() as f64)/ (ops.len() as f64);

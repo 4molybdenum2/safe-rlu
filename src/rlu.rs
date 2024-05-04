@@ -98,8 +98,8 @@ pub struct RluThreadData<T> {
 }
 
 impl<T> RluThreadData<T> {
-    fn new(thid : usize) -> RluThreadData<T> {
-        RluThreadData {
+    fn new(thid : usize) -> RluThreadData<T> {  
+        let mut thread = RluThreadData {
             is_writer: false,
             write_clock: AtomicUsize::new(usize::MAX),
             local_clock: AtomicUsize::new(0),
@@ -109,7 +109,14 @@ impl<T> RluThreadData<T> {
             thread_id: thid,
             free_nodes: unsafe{MaybeUninit::uninit().assume_init()},
             free_nodes_size: 0,
+        };
+
+
+        for i in 0..2 {
+            thread.write_log[i].curr_size = 0; // initialize size of write logs as 0
         }
+
+        thread
     }
 }
 
@@ -403,7 +410,7 @@ pub fn rlu_swap_write_logs<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : 
         let thread_data = &mut rlu_global.threads[thread_id];
 
         thread_data.current_log = (thread_data.current_log + 1)%2;
-        let curr_log = &mut thread_data.write_log[thread_data.current_log];
+        let curr_log: &mut WriteLog<T> = &mut thread_data.write_log[thread_data.current_log];
         curr_log.curr_size = 0; // start from log beginning, which basically means empty log
         
         
