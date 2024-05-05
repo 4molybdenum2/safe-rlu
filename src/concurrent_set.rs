@@ -4,7 +4,7 @@ pub trait ConcurrentSet<T>: Send + Sync {
     fn len(&self) -> usize;
 
     // Returns true if the value is contained in the set
-    fn contains(&self, value: u64) -> bool;
+    fn contains(&self, value: T) -> bool;
 
     // If the value is not in the set, insert it and return true, return false otherwise
     fn insert(&mut self, value: T) -> bool;
