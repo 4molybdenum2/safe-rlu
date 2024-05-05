@@ -207,7 +207,7 @@ pub fn rlu_reader_unlock<T : ClonedT>(g_rlu: *mut RluGlobal<T>, thread_id: usize
     }
 }
 
-pub fn rlu_dereference<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usize, obj : *mut Rlu<T>) -> Option<*mut T> {
+pub fn rlu_dereference<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usize, obj : *mut Rlu<T>) -> *mut T {
     debug_log!("Thread {thread_id}: dereference");
     unsafe {
         let actual_obj: &mut ObjOriginal<T> = (*obj).deref_mut();
@@ -215,14 +215,14 @@ pub fn rlu_dereference<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usiz
         match copy {
             None => { 
                 debug_log!("return original");
-                Some(&mut actual_obj.data as *mut T)
+                &mut actual_obj.data as *mut T
             }
 
             Some(copy) => {
                 let lockthd = copy.thread_id;
                 if thread_id == lockthd {
                     debug_log!("deref self?");
-                    return Some(&mut copy.data as *mut T);
+                    return &mut copy.data as *mut T;
                 } else {
                     
                     let other_write_clock = (*g_rlu).threads[lockthd].write_clock.load(Ordering::SeqCst); // get other write lock
@@ -233,11 +233,11 @@ pub fn rlu_dereference<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usiz
 
                     if other_write_clock <= my_local_clock {
                         debug_log!("deref other copy?");
-                        return Some(&mut copy.data as *mut T);
+                        return &mut copy.data as *mut T;
                     }
 
                     debug_log!("deref original");
-                    return Some(&mut actual_obj.data as *mut T);
+                    return &mut actual_obj.data as *mut T;
                 }
             }
         }

@@ -95,7 +95,7 @@ fn read_write(rw : RluInt64Wrapper, n_threads: u8, write_ratio : f64) {
                 let curr = Instant::now();
 
                 rlu_reader_lock(g, id);
-                let read_obj = rlu_dereference(g, id, obj).unwrap();
+                let read_obj = rlu_dereference(g, id, obj);
                 results.reads += 1;
                 results.read_times += start.elapsed().as_nanos();
                 rlu_reader_unlock(g, id);
