@@ -27,7 +27,9 @@ fn set_simple() {
     assert!(set.contains(i));
   }
 
-  // assert!(!set.contains(5));
+  assert!(set.len() == 3);
+  
+  assert!(!set.contains(5));
   // println!("Contains");
 
   // //assert!(set.delete(1));

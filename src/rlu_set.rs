@@ -134,9 +134,9 @@ impl<T> ConcurrentSet<T> for RluSet<T> where T: PartialEq + PartialOrd + Copy + 
 
       rlu_reader_lock(self.rlu_global, self.thread_id);
 
-      let head_ptr = &self.head as *const Rlu<RluNode<T>> as *mut Rlu<RluNode<T>>;
+      let mut node_ptr = &self.head as *const Rlu<RluNode<T>> as *mut Rlu<RluNode<T>>;
 
-      let mut node_ptr = rlu_dereference(self.rlu_global, self.thread_id, head_ptr);
+      let mut node = rlu_dereference(self.rlu_global, self.thread_id, node_ptr);
 
       let mut first_deref = true;
 
@@ -151,14 +151,10 @@ impl<T> ConcurrentSet<T> for RluSet<T> where T: PartialEq + PartialOrd + Copy + 
             first_deref = false;
           }
 
-          let mut next_ptr = unsafe{ (*node_ptr).next };
-
-          if next_ptr.is_null(){
-            break;
-          }
+          node = rlu_dereference(self.rlu_global, self.thread_id, node_ptr);
 
           // increment ptr
-          node_ptr = rlu_dereference(self.rlu_global, self.thread_id, next_ptr);
+          node_ptr = unsafe{ (*node).next };
         }
       }
 
