@@ -80,6 +80,7 @@ impl<T> ConcurrentSet<T> for RluSet<T> where T: PartialEq + PartialOrd + Copy + 
 
     let mut node_ptr = rlu_dereference(self.rlu_global, self.thread_id, head_ptr);
 
+
     let first_deref = true;
 
     loop {
@@ -109,7 +110,7 @@ impl<T> ConcurrentSet<T> for RluSet<T> where T: PartialEq + PartialOrd + Copy + 
                 ret = true;
                 break;
               }
-
+              
               let next_ptr = (*node_ptr).next ;
               // increment ptr
               node_ptr = rlu_dereference(self.rlu_global, self.thread_id, next_ptr);
@@ -206,23 +207,8 @@ impl<T> ConcurrentSet<T> for RluSet<T> where T: PartialEq + PartialOrd + Copy + 
             break;
         }
 
-        let xx = rlu_try_lock(self.rlu_global, self.thread_id, prev_ptr);
 
-        if xx.is_none() {
-            rlu_abort(self.rlu_global, self.thread_id);
-            continue;
-        }
-
-        if !next.is_null() {
-            let x =
-                rlu_try_lock(self.rlu_global, self.thread_id, next_ptr);
-
-            if x.is_none() {
-                rlu_abort(self.rlu_global, self.thread_id);
-                continue;
-            }
-        }
-
+        
         let tmp = rlu_global_obj.alloc(
           RluNode { 
             elem: value,
@@ -231,21 +217,64 @@ impl<T> ConcurrentSet<T> for RluSet<T> where T: PartialEq + PartialOrd + Copy + 
         );
 
         // create node
-        let new_node = Box::into_raw(Box::new(tmp));
+        let new_node_ptr = Box::into_raw(Box::new(tmp));
 
-        let new_node_deref = rlu_dereference(self.rlu_global, self.thread_id, new_node);
+
+        let prev_ptr_update = rlu_try_lock(self.rlu_global, self.thread_id, prev_ptr);
+
+        if prev_ptr_update.is_none() {
+            rlu_abort(self.rlu_global, self.thread_id);
+            continue;
+        } else {
+          if let Some(p) = prev_ptr_update {
+            //
+            unsafe {
+              (*p).next = new_node_ptr;
+            }
+
+          } else {
+            rlu_abort(self.rlu_global, self.thread_id);
+            continue;
+          }
+        } 
+
+        if !next.is_null() {
+            let new_ptr_update = rlu_try_lock(self.rlu_global, self.thread_id, new_node_ptr);
+
+            if new_ptr_update.is_none() {
+                rlu_abort(self.rlu_global, self.thread_id);
+                continue;
+            } else {
+              if let Some(p) = new_ptr_update {
+                //
+                unsafe {
+                  (*p).next = next_ptr;
+                }
+
+              } else {
+                rlu_abort(self.rlu_global, self.thread_id);
+                continue;
+              }
+            }
+        }
+
+
 
         // Update the previous node's next pointer to point to the new node
-        unsafe {
-          (*new_node_deref).next = next_ptr;
+        // unsafe {
+        //   (*new_node).next = next_ptr;
 
-          //  = next_ptr;
-          (*prev).next = new_node;
+        //   //  = next_ptr;
+        //   (*prev).next = new_node_ptr;
           
-          // (*prev).next = new_node;
-          println!("{:?} {:?}", new_node_deref, (*prev).next);
+        //   // (*prev).next = new_node;
+        //   println!("{:?} ", (*prev).next);
 
-        }
+        //   let x = rlu_dereference(self.rlu_global, self.thread_id, prev_ptr);
+
+        //   println!("{:?}", (*x).next);
+
+        // }
 
 
         break;
