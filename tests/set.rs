@@ -46,50 +46,50 @@ fn set_simple() {
   //println!("Del 2: {}", set.to_string());
 }
 
-// #[test]
-// fn set_thread() {
-//   let mut set = RluSet::new();
+#[test]
+fn set_thread() {
+  let mut set = RluSet::new();
 
-//   for i in 0..1000 {
-//     assert!(set.insert(i));
-//   }
+  for i in 0..1000 {
+    assert!(set.insert(i));
+  }
 
-//   let reader = || {
-//     let set = set.clone_ref();
-//     thread::spawn(move || {
-//       let mut rng = thread_rng();
+  let reader = || {
+    let set = set.clone_ref();
+    thread::spawn(move || {
+      let mut rng = thread_rng();
 
-//       for _ in 0..10000 {
-//         let i = rng.gen_range(0, 500) * 2;
-//         assert!(set.contains(i));
-//       }
-//     })
-//   };
+      for _ in 0..10000 {
+        let i = rng.gen_range(0, 500) * 2;
+        assert!(set.contains(i));
+      }
+    })
+  };
 
-//   let writer = || {
-//     let mut set = set.clone_ref();
-//     thread::spawn(move || {
-//       let mut rng = thread_rng();
+  let writer = || {
+    let mut set = set.clone_ref();
+    thread::spawn(move || {
+      let mut rng = thread_rng();
 
-//       for _ in 0..1000 {
-//         let i = rng.gen_range(0, 499) * 2 + 1;
-//         if random() {
-//           set.insert(i);
-//         } else {
-//           //set.delete(i);
-//         }
-//       }
-//     })
-//   };
+      for _ in 0..1000 {
+        let i = rng.gen_range(0, 499) * 2 + 1;
+        if random() {
+          set.insert(i);
+        } else {
+          //set.delete(i);
+        }
+      }
+    })
+  };
 
-//   let readers: Vec<_> = (0..16).map(|_| reader()).collect();
-//   let writers: Vec<_> = (0..4).map(|_| writer()).collect();
+  let readers: Vec<_> = (0..16).map(|_| reader()).collect();
+  let writers: Vec<_> = (0..4).map(|_| writer()).collect();
 
-//   for t in readers {
-//     t.join().unwrap();
-//   }
+  for t in readers {
+    t.join().unwrap();
+  }
 
-//   for t in writers {
-//     t.join().unwrap();
-//   }
-// }
+  for t in writers {
+    t.join().unwrap();
+  }
+}
