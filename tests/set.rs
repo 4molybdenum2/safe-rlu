@@ -28,19 +28,21 @@ fn set_simple() {
   }
 
   assert!(set.len() == 3);
-  
+
   assert!(!set.contains(5));
   // println!("Contains");
 
-  // //assert!(set.delete(1));
+  assert!(set.delete(1));
   // //println!("Del 1: {}", set.to_string());
 
-  // assert!(set.contains(1));
+  assert!(!set.contains(1));
 
-  // //assert!(set.delete(0));
+  assert!(set.delete(0));
   // assert!(set.contains(0));
 
-  //assert!(set.delete(2));
+  assert!(set.delete(2));
+
+  assert!(set.len() == 0)
   //println!("Del 2: {}", set.to_string());
 }
 

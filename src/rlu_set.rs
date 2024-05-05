@@ -2,7 +2,7 @@ use crate::concurrent_set::ConcurrentSet;
 use crate::rlu::{
 self, Rlu, RluGlobal, RluThreadData
 };
-use crate::{rlu_abort, rlu_dereference, rlu_reader_lock, rlu_reader_unlock, rlu_thread_init, rlu_try_lock};
+use crate::{rlu_abort, rlu_dereference, rlu_free, rlu_reader_lock, rlu_reader_unlock, rlu_thread_init, rlu_try_lock};
 use std::fmt::Debug;
 use std::marker::{Unpin, PhantomData};
 use std::mem::MaybeUninit;
@@ -252,8 +252,8 @@ impl<T> ConcurrentSet<T> for RluSet<T> where T: PartialEq + PartialOrd + Copy + 
             (*plocked).next = new_node_ptr;
 
 
-            println!("prev, {:?}", (*plocked));
-            println!("new , {:?}", (*new_locked));
+            //println!("prev, {:?}", (*plocked));
+            //println!("new , {:?}", (*new_locked));
 
 
         }
@@ -268,7 +268,85 @@ impl<T> ConcurrentSet<T> for RluSet<T> where T: PartialEq + PartialOrd + Copy + 
 
 
   fn delete(&self, value: T) -> bool {
-    unimplemented!()
+    
+    let mut ret = false;
+
+    'outer : loop {
+
+
+      rlu_reader_lock(self.rlu_global, self.thread_id);
+
+      let mut prev_ptr = &self.head as *const Rlu<RluNode<T>> as *mut Rlu<RluNode<T>>;
+
+      let mut prev = rlu_dereference(self.rlu_global, self.thread_id, prev_ptr); // ptr to list head
+
+
+      let mut next_ptr = unsafe { (*prev).next };
+
+      let mut next = rlu_dereference(self.rlu_global, self.thread_id, next_ptr); // ptr to next ptr to prev
+
+      'inner  :loop {
+        if next_ptr.is_null() {
+          break 'inner;
+        } else {
+          let curr = rlu_dereference(self.rlu_global, self.thread_id, next_ptr);
+
+          let v = unsafe { (*curr).elem };
+
+          if v > value {
+            break 'inner;
+          }
+
+          if v == value {
+            //delete
+
+            let prev_ptr_locked = rlu_try_lock(self.rlu_global, self.thread_id, prev_ptr);
+
+            let next_ptr_locked = rlu_try_lock(self.rlu_global, self.thread_id, next_ptr);
+
+            if prev_ptr_locked.is_none() || next_ptr_locked.is_none() {
+              rlu_abort(self.rlu_global, self.thread_id);
+              continue 'outer;
+            }
+
+
+            ret = true;
+
+            let plocked = prev_ptr_locked.unwrap();
+
+            let nlocked = next_ptr_locked.unwrap();
+
+            unsafe {
+                
+            (*plocked).next = (*nlocked).next;
+            }
+
+
+            unsafe {
+              rlu_free(self.rlu_global, self.thread_id, next_ptr);
+            }
+
+            break;
+
+          }
+
+
+          prev_ptr = next_ptr;
+
+          prev = rlu_dereference(self.rlu_global, self.thread_id, prev_ptr);
+
+          next_ptr = unsafe{ (*prev).next};
+
+          //next = rlu_dereference(self.rlu_global, self.thread_id, prev_ptr);
+        }
+      }
+
+      rlu_reader_unlock(self.rlu_global, self.thread_id);
+      break;
+
+    }
+
+    ret
   }
 
   fn clone_ref(&self) -> Self {
