@@ -17,13 +17,13 @@ fn set_simple() {
   assert!(set.insert(2));
   // println!("Ins 0: {}", set.to_string());
 
-  // assert!(set.insert(0));
-  // assert!(set.insert(1));
+  assert!(set.insert(0));
+  assert!(set.insert(1));
   // println!("Ins 1: {}", set.to_string());
 
-  // for i in 0..=2 {
-  //   assert!(set.contains(i));
-  // }
+  for i in 0..=2 {
+    assert!(set.contains(i));
+  }
 
   // assert!(!set.contains(5));
   // println!("Contains");

@@ -24,8 +24,8 @@ macro_rules! debug_log {
 
 #[derive(Debug)]
 pub struct ObjOriginal<T> {
-    copy : AtomicPtr<ObjCopy<T>>,
-    data : T,
+    pub copy : AtomicPtr<ObjCopy<T>>,
+    pub data : T,
 }
 
 
@@ -210,6 +210,11 @@ pub fn rlu_reader_unlock<T : ClonedT>(g_rlu: *mut RluGlobal<T>, thread_id: usize
 pub fn rlu_dereference<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usize, obj : *mut Rlu<T>) -> *mut T {
     debug_log!("Thread {thread_id}: dereference");
     unsafe {
+
+        if obj.is_null() {
+            return ptr::null_mut();
+        }
+
         let actual_obj: &mut ObjOriginal<T> = (*obj).deref_mut();
         let copy = actual_obj.copy.load(Ordering::SeqCst).as_mut();
         match copy {
@@ -499,3 +504,17 @@ pub fn rlu_free<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usize, obj 
     }
 
 }
+
+
+// pub fn rlu_assign_ptr<T: ClonedT>(p_ptr: *mut *mut Rlu<T>, obj : *mut Rlu<T>) {
+//     unsafe {
+//         if obj.is_null() {
+//             (*p_ptr) = obj;
+//             return;
+//         }
+
+//         *p_ptr = (*obj).deref_mut();
+
+
+//     }
+// }
