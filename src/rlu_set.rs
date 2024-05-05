@@ -76,46 +76,50 @@ impl<T> ConcurrentSet<T> for RluSet<T> where T: PartialEq + PartialOrd + Copy + 
 
     rlu_reader_lock(self.rlu_global, self.thread_id);
 
-    let head_ptr = &self.head as *const Rlu<RluNode<T>> as *mut Rlu<RluNode<T>>;
+    let mut node_ptr = &self.head as *const Rlu<RluNode<T>> as *mut Rlu<RluNode<T>>;
 
-    let mut node_ptr = rlu_dereference(self.rlu_global, self.thread_id, head_ptr);
+    let mut node = rlu_dereference(self.rlu_global, self.thread_id, node_ptr);
 
 
-    let first_deref = true;
+    let mut first_deref = true;
 
     loop {
-      unsafe{ 
-            if node_ptr.is_null() {
+          if node_ptr.is_null() {
+            break;
+          }
+          else if first_deref {
+
+            first_deref = false;
+
+            let next_ptr = unsafe{ (*node).next }; 
+
+            if next_ptr.is_null() {
               break;
             }
-            if first_deref {
-              let next_ptr = (*node_ptr).next; 
 
-              if next_ptr.is_null() {
-                break;
-              }
+            node_ptr = next_ptr;
 
-              node_ptr = rlu_dereference(self.rlu_global, self.thread_id, next_ptr);
+            continue;
 
-              continue;
+          } else {
 
-            } else {
-              let v = unsafe{ (*node_ptr).elem};
+            node = rlu_dereference(self.rlu_global, self.thread_id, node_ptr);
 
-              if v > value {
-                break;
-              }
+            let v = unsafe{ (*node).elem};
 
-              if v == value {
-                ret = true;
-                break;
-              }
-              
-              let next_ptr = (*node_ptr).next ;
-              // increment ptr
-              node_ptr = rlu_dereference(self.rlu_global, self.thread_id, next_ptr);
-              
+            if v > value {
+              break;
             }
+
+            if v == value {
+              ret = true;
+              break;
+            }
+            
+            let next_ptr = unsafe { (*node).next };
+            // increment ptr
+            node_ptr = next_ptr;
+            
           }
     }
 
@@ -171,17 +175,17 @@ impl<T> ConcurrentSet<T> for RluSet<T> where T: PartialEq + PartialOrd + Copy + 
 
         let mut prev_ptr = &self.head as *const Rlu<RluNode<T>> as *mut Rlu<RluNode<T>>;
 
-        let mut prev = rlu_dereference(self.rlu_global, self.thread_id, prev_ptr);
+        let mut prev = rlu_dereference(self.rlu_global, self.thread_id, prev_ptr); // ptr to list head
 
 
         let mut next_ptr = unsafe { (*prev).next };
 
-        let mut next = rlu_dereference(self.rlu_global, self.thread_id, next_ptr);
+        let mut next = rlu_dereference(self.rlu_global, self.thread_id, next_ptr); // ptr to next ptr to prev
 
         let mut matches = false;
 
         loop {
-            if next.is_null() {
+            if next_ptr.is_null() {
                 break;
             }
 
@@ -193,14 +197,13 @@ impl<T> ConcurrentSet<T> for RluSet<T> where T: PartialEq + PartialOrd + Copy + 
                 }
                 break;
             }
+            prev_ptr = next_ptr;       // prev ptr now points to next ptr          
 
-            prev_ptr = next_ptr;                
+            prev = rlu_dereference(self.rlu_global, self.thread_id, prev_ptr);
 
-            let next_to_next_ptr = unsafe { (*next).next };
+            next_ptr = unsafe { (*prev).next };
 
-            next = rlu_dereference(self.rlu_global, self.thread_id, next_to_next_ptr);
-
-  
+            next = rlu_dereference(self.rlu_global, self.thread_id, next_ptr);
         }
 
         if matches {
@@ -220,62 +223,44 @@ impl<T> ConcurrentSet<T> for RluSet<T> where T: PartialEq + PartialOrd + Copy + 
         let new_node_ptr = Box::into_raw(Box::new(tmp));
 
 
-        let prev_ptr_update = rlu_try_lock(self.rlu_global, self.thread_id, prev_ptr);
+        let prev_ptr_locked = rlu_try_lock(self.rlu_global, self.thread_id, prev_ptr);
 
-        if prev_ptr_update.is_none() {
+
+
+
+
+
+        if prev_ptr_locked.is_none() {
             rlu_abort(self.rlu_global, self.thread_id);
             continue;
-        } else {
-          if let Some(p) = prev_ptr_update {
-            //
-            unsafe {
-              (*p).next = new_node_ptr;
-            }
+        } 
 
-          } else {
+        if !next_ptr.is_null() { // only if inserting to last 
+          let next_ptr_locked = rlu_try_lock(self.rlu_global, self.thread_id, next_ptr);
+
+          if next_ptr_locked.is_none() {
             rlu_abort(self.rlu_global, self.thread_id);
             continue;
           }
-        } 
-
-        if !next.is_null() {
-            let new_ptr_update = rlu_try_lock(self.rlu_global, self.thread_id, new_node_ptr);
-
-            if new_ptr_update.is_none() {
-                rlu_abort(self.rlu_global, self.thread_id);
-                continue;
-            } else {
-              if let Some(p) = new_ptr_update {
-                //
-                unsafe {
-                  (*p).next = next_ptr;
-                }
-
-              } else {
-                rlu_abort(self.rlu_global, self.thread_id);
-                continue;
-              }
-            }
         }
 
 
+        let plocked = prev_ptr_locked.unwrap();
+        // let mut nlocked = next_ptr_locked.unwrap();
 
-        // Update the previous node's next pointer to point to the new node
-        // unsafe {
-        //   (*new_node).next = next_ptr;
+        unsafe {
+            let new_locked = rlu_try_lock(self.rlu_global, self.thread_id, new_node_ptr).unwrap();
 
-        //   //  = next_ptr;
-        //   (*prev).next = new_node_ptr;
-          
-        //   // (*prev).next = new_node;
-        //   println!("{:?} ", (*prev).next);
+            (*new_locked).next = next_ptr;
 
-        //   let x = rlu_dereference(self.rlu_global, self.thread_id, prev_ptr);
+            (*plocked).next = new_node_ptr;
 
-        //   println!("{:?}", (*x).next);
 
-        // }
+            println!("prev, {:?}", (*plocked));
+            println!("new , {:?}", (*new_locked));
 
+
+        }
 
         break;
     }

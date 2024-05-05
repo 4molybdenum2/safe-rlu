@@ -256,6 +256,11 @@ pub fn rlu_try_lock<T : ClonedT>(g_rlu : * mut RluGlobal<T>, thread_id : usize, 
             if thread_id < RLU_MAX_THREADS {
                 let rlu_global = &mut *g_rlu;
                 //let thread_data = &mut rlu_global.threads[thread_id];
+                
+
+                // handle if object is null
+                
+
 
                 rlu_global.threads[thread_id].is_writer = true;
                 let actual_obj = (*obj).deref();
