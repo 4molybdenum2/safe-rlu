@@ -57,7 +57,7 @@ fn rlu_multiple_threads_read_only() {
   };
 
 
-  let reader1 = thread::spawn(move || unsafe {
+    let reader1 = thread::spawn(move || unsafe {
     let wrapped_int64_obj = wrapped_int64_obj; // needed in 2021 version of Rust
     let obj = wrapped_int64_obj.obj;
     let rglobal = wrapped_int64_obj.rlu_global;
@@ -69,7 +69,7 @@ fn rlu_multiple_threads_read_only() {
 
     thread::sleep(time::Duration::from_millis(100));
 
-    let after  = rlu_dereference(rglobal, id1, obj).unwrap();
+    let after  = rlu_dereference(rglobal, id1, obj);
     assert_eq!(test_val, *after);
     rlu_reader_unlock(rglobal, id1);
 
@@ -87,7 +87,7 @@ fn rlu_multiple_threads_read_only() {
     rlu_reader_lock(rglobal, id2);
     thread::sleep(time::Duration::from_millis(100));
 
-    let after  = rlu_dereference(rglobal, id2, obj).unwrap();
+    let after  = rlu_dereference(rglobal, id2, obj);
     assert_eq!(test_val, *after);
     rlu_reader_unlock(rglobal, id2);
 
@@ -120,7 +120,7 @@ fn rlu_single_read_single_writer() {
       
       /* will hold lock value will not change */
       rlu_reader_lock(rglobal, id1);
-      let val = rlu_dereference(rglobal, id1, obj).unwrap();
+      let val = rlu_dereference(rglobal, id1, obj);
       let before = *val;
       thread::sleep(time::Duration::from_millis(200));
       assert_eq!(*val, before);
@@ -129,7 +129,7 @@ fn rlu_single_read_single_writer() {
 
       /* value will change because it happens after 200 millis */
       rlu_reader_lock(rglobal, id1);
-      let obj2 = rlu_dereference(rglobal, id1, obj).unwrap();
+      let obj2 = rlu_dereference(rglobal, id1, obj);
       assert_eq!(*obj2, 3);
       rlu_reader_unlock(rglobal, id1);
     
@@ -172,7 +172,7 @@ fn rlu_single_read_single_writer() {
   
       rlu_reader_lock(rglobal, id2);
   
-      let obj2 = rlu_dereference(rglobal, id2, obj).unwrap();
+      let obj2 = rlu_dereference(rglobal, id2, obj);
   
       assert_eq!(*obj2, 2);
 
@@ -215,7 +215,7 @@ fn rlu_hold_locks() {
   
         rlu_reader_lock(rglobal, id1);
     
-        let val = rlu_dereference(rglobal, id1, obj).unwrap();
+        let val = rlu_dereference(rglobal, id1, obj);
         let before = *val;
         thread::sleep(time::Duration::from_millis(10));
     
@@ -291,7 +291,7 @@ fn rlu_hold_locks() {
 
     let id = rlu_thread_init(rglobal);
     rlu_reader_lock(rglobal, id);
-    let val = rlu_dereference(rglobal, id, obj).unwrap();
+    let val = rlu_dereference(rglobal, id, obj);
     assert_eq!(*val, 1000 * num_writers);
     rlu_reader_unlock(rglobal, id);
 

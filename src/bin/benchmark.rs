@@ -87,7 +87,7 @@ fn read_write(rw : RluInt64Wrapper, config : BenchmarkConfig) -> BenchmarkResult
                     // read operation
                     let curr = Instant::now();
                     rlu_reader_lock(g, id);
-                    let read_obj = rlu_dereference(g, id, obj).unwrap();
+                    let read_obj = rlu_dereference(g, id, obj);
                     rlu_reader_unlock(g, id);
 
 

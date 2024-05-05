@@ -1,4 +1,4 @@
-.PHONY: all test benchmark bench-btree bench-rluset plot deps
+.PHONY: all test benchmark bench-btree bench-rluset plot deps test
 
 all:
 	cargo run --bin benchmark_rlu_set --release
@@ -18,9 +18,14 @@ benchmark-rluset:
 	cargo run --bin benchmark_rlu_set --release > bench_rluset.csv
 
 
+test:
+	cargo test
+
+
 plot:
 	python bench_plot.py
 
 
 deps:
 	pip install -r requirements.txt
+

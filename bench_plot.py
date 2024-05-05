@@ -4,7 +4,7 @@ import sys
 
 
 def main():
-    df = pd.read_csv('bench_btree.csv')
+    df = pd.read_csv('bench_rluset.csv')
     
     # Group by write ratio
     grouped = df.groupby('Write_Ratio')
@@ -19,10 +19,10 @@ def main():
     # Set labels and title
     plt.xlabel('Thread Count')
     plt.ylabel('Throughput')
-    plt.title('Rlu BTree Set Benchmark')
+    plt.title('RluSet Benchmark')
 
     # Show plot
-    plt.savefig('bench_btree.png')
+    plt.savefig('bench_rluset.png')
 
 if __name__ == "__main__":
     main()

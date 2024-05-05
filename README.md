@@ -17,6 +17,7 @@ To run RLU based Set benchmarks
 make rluset-btree
 ```
 
+![RluSet Benchmark](bench_rluset.png)
 
 To run Rust's BTree Set benchmarks
 

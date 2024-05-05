@@ -3,7 +3,7 @@
 extern crate rand;
 
 use std::{thread, time::Instant};
-use rlu::{ConcurrentBTreeSet, ConcurrentSet};
+use rlu::{RluSet, ConcurrentSet};
 
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 
@@ -29,12 +29,12 @@ struct BenchmarkConfig {
     range: usize
 }
 
-fn read_write(set: ConcurrentBTreeSet<usize>, config : BenchmarkConfig) -> BenchmarkResult {
+fn read_write(set: RluSet<usize>, config : BenchmarkConfig) -> BenchmarkResult {
     let worker = || {
         let mut results: BenchmarkResult = BenchmarkResult::default();
-        let mut set = set.clone_ref();
+        let set = set.clone_ref();
 
-        thread::spawn(move || unsafe {
+        thread::spawn(move || {
             let start = Instant::now();
             // initialize thread
             let mut ops = 0;
@@ -94,7 +94,7 @@ fn read_write(set: ConcurrentBTreeSet<usize>, config : BenchmarkConfig) -> Bench
 }
 
 fn benchmark() {
-    println!("Write_Fraction,Thread_Count,Throughput");
+    println!("Write_Ratio,Thread_Count,Throughput");
     for wr in &[0.02, 0.2, 0.4] {
         for i in 1..=8 {
             let config = BenchmarkConfig {
@@ -107,7 +107,7 @@ fn benchmark() {
             };
 
             let ops: Vec<_> = (0..3).map(|_| {
-                let mut set = ConcurrentBTreeSet::new();
+                let set = RluSet::new();
                 let mut _rnd = SmallRng::from_seed([0; 16]);
                 while set.len() < config.initial_size {
                     let i = _rnd.gen_range(0, config.range);
