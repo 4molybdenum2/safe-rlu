@@ -1,6 +1,6 @@
 # Read Log Update in Rust
 
-Implementation of Read Log Update in Rust
+Implementation of Read Log Update in Rust. Motivated by [this](https://stanford-cs242.github.io/f19/assignments/final/rlu/)
 
 
 ### Running Benchmarks:
